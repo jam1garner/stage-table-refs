@@ -1,0 +1,9 @@
+[package]
+name = "stage-table-refs"
+version = "0.1.0"
+authors = ["jam1garner <8260240+jam1garner@users.noreply.github.com>"]
+edition = "2018"
+
+[dependencies]
+nxo-parser = { git = "https://github.com/jam1garner/nxo-parser" }
+binread = "1.4"
