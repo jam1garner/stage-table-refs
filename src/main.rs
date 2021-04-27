@@ -41,24 +41,35 @@ fn add_offset(instr: u32) -> Option<u32> {
     }
 }
 
-const CMP_IMM_MASK: u32 =   0b011111111_0_000000000000_00000_11111; 
-const CMP_IMM_MASKED: u32 = 0b011100010_0_000000000000_00000_11111; 
-
 struct CmpImmediate {
     imm12: u16,
     reg: u8,
     is_64_bit: bool,
 }
 
-fn cmp_immediate(instr: u32) -> Option<CmpImmediate> {
-    if instr & CMP_IMM_MASK == CMP_IMM_MASKED {
-        let reg = ((instr >> 5) & 0b11111) as u8;
-        let imm12 = ((instr >> 10) & 0b111111111111) as u16;
-        let is_64_bit = (instr >> 31) == 1;
+impl CmpImmediate {
+    const MASK: u32 = 0b011111111_0_000000000000_00000_11111;
+    const MASKED: u32 = 0b011100010_0_000000000000_00000_11111; 
 
-        Some(CmpImmediate { reg, imm12, is_64_bit })
-    } else {
-        None
+    fn decode(instr: u32) -> Option<Self> {
+        if instr & Self::MASK == Self::MASKED {
+            let reg = ((instr >> 5) & 0b11111) as u8;
+            let imm12 = ((instr >> 10) & 0b111111111111) as u16;
+            let is_64_bit = (instr >> 31) == 1;
+
+            Some(Self { reg, imm12, is_64_bit })
+        } else {
+            None
+        }
+    }
+
+    fn encode(&self) -> u32 {
+        let sh = 0;
+        let sf = if self.is_64_bit { 1 } else { 0 };
+        let imm12 = (self.imm12 & 0b111111111111) as u32;
+        let rn = (self.reg & 0b11111) as u32;
+
+        Self::MASKED | (imm12 << 10) | (rn << 5) | (sf << 31) | (sh << 22)
     }
 }
 
@@ -174,7 +185,7 @@ impl<I: Iterator<Item = [u8; 4]>> Iterator for StageCountRefIter<I> {
         while let Some((i, bytes)) = self.inner.next() {
             let instr = u32::from_le_bytes(bytes);
 
-            if let Some(instr @ CmpImmediate { imm12: 0x165, .. }) = cmp_immediate(instr) {
+            if let Some(instr @ CmpImmediate { imm12: 0x165, .. }) = CmpImmediate::decode(instr) {
                 return Some(CmpPatchLocation { instr, text_offset: i * 4})
             }
         }
